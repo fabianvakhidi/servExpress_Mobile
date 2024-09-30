@@ -24,7 +24,7 @@ export default function LoginScreen({ navigation }) {
         if (response.data.message === 'Login successful') {
           const token = response.data.token;
           await AsyncStorage.setItem('authToken', token);
-          navigation.navigate('homeScreen'); // Navigate to homeScreen
+          navigation.navigate('menuScreen'); // Navigate to menuScreen
         } else {
           Alert.alert('Error', response.data.message || 'Login failed');
         }
@@ -32,6 +32,7 @@ export default function LoginScreen({ navigation }) {
         Alert.alert('Error', 'Invalid response from server.');
       }
     } catch (error) {
+      console.error(error); // Log the error for debugging
       Alert.alert('Error', 'An error occurred. Please try again.');
     }
   };
@@ -42,14 +43,14 @@ export default function LoginScreen({ navigation }) {
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
-        style={{ marginBottom: 10 }}
+        style={{ marginBottom: 10, borderWidth: 1, borderColor: '#ccc', padding: 8 }}
       />
       <TextInput
         placeholder="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-        style={{ marginBottom: 10 }}
+        style={{ marginBottom: 10, borderWidth: 1, borderColor: '#ccc', padding: 8 }}
       />
       <Button title="Login" onPress={handleLogin} />
     </View>
