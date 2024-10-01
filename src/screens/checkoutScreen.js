@@ -1,5 +1,5 @@
 // src/screens/CheckoutScreen.js
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Button, StyleSheet, Alert } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function CheckoutScreen({ route, navigation }) {
   const { selectedProducts } = route.params; // Retrieve the selected products from route parameters
   const totalAmount = selectedProducts.reduce((total, item) => total + (item.priceAtOrder * item.quantity), 0); // Calculate total amount
+  
+  // State to hold IP information
+  const [ipInfo, setIpInfo] = useState({ city: '', country: '', currency: '' });
 
   const handlePayment = async () => {
     try {
@@ -48,6 +51,17 @@ export default function CheckoutScreen({ route, navigation }) {
         });
       }
 
+      // Fetch IP information after order creation
+      const ipResponse = await axios.get('http://192.168.0.4:3000/api/ipinfo', {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token in the request headers
+        },
+      });
+
+      // Extract required details and set IP info
+      const { city, country, currency } = ipResponse.data;
+      setIpInfo({ city, country, currency });
+
       // Payment logic can follow here
       Alert.alert('Success', 'Order created successfully!');
       navigation.navigate('Home'); // Navigate to Home after successful order creation
@@ -67,6 +81,11 @@ export default function CheckoutScreen({ route, navigation }) {
           <Text>{item.productId} - ${item.priceAtOrder} x {item.quantity}</Text>
         </View>
       ))}
+
+      {/* Display IP information */}
+      <Text style={styles.ipInfo}>City: {ipInfo.city}</Text>
+      <Text style={styles.ipInfo}>Country: {ipInfo.country}</Text>
+      <Text style={styles.ipInfo}>Currency: {ipInfo.currency}</Text>
 
       <Button title="Pay Now" onPress={handlePayment} />
     </View>
@@ -88,5 +107,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginVertical: 10,
+  },
+  ipInfo: {
+    marginVertical: 5,
+    fontSize: 16,
   },
 });
