@@ -30,11 +30,15 @@ export default function MenuScreen({ navigation }) {
   }, []);
 
   const proceedToCheckout = () => {
-    const selectedProductIds = Object.keys(quantities).filter(id => quantities[id] > 0).map(id => ({
-      productId: parseInt(id),
-      quantity: quantities[id],
-      priceAtOrder: products.find(product => product.productId === parseInt(id)).price // Get price for the selected product
-    }));
+    const selectedProductIds = Object.keys(quantities).filter(id => quantities[id] > 0).map(id => {
+      const product = products.find(product => product.productId === parseInt(id));
+      return {
+        productId: parseInt(id),
+        quantity: quantities[id],
+        priceAtOrder: product.price, // Get price for the selected product
+        name: product.name // Get product name for the selected product
+      };
+    });
 
     navigation.navigate('CheckoutScreen', { selectedProducts: selectedProductIds });
   };

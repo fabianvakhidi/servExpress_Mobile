@@ -7,9 +7,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function CheckoutScreen({ route, navigation }) {
   const { selectedProducts } = route.params; // Retrieve the selected products from route parameters
   const totalAmount = selectedProducts.reduce((total, item) => total + (item.priceAtOrder * item.quantity), 0); // Calculate total amount
-  
+
   // State to hold IP information
   const [ipInfo, setIpInfo] = useState({ city: '', country: '', currency: '' });
+  const [stripeUrl, setStripeUrl] = useState(''); // State to hold Stripe session URL
 
   const handlePayment = async () => {
     try {
@@ -62,8 +63,37 @@ export default function CheckoutScreen({ route, navigation }) {
       const { city, country, currency } = ipResponse.data;
       setIpInfo({ city, country, currency });
 
+      // Prepare the Stripe session request body
+      const stripeRequestBody = {
+        city: city,
+        country: country,
+        email: "aasmund.ivarjord@example.com", // Replace with actual email
+        name: "Aasmund Ivarjord", // Replace with actual name
+        success_url: "https://example.com/success",
+        cancel_url: "https://example.com/cancel",
+        payment_method_types: ['card'],
+        currency: currency,
+        product_name: selectedProducts[0].name, // Assuming the first product is chosen
+        unit_amount: totalAmount * 100, // Amount in cents
+        internalCustomerId: customerId,
+      };
+
+      // Call the Stripe API to create a session
+      const createSessionResponse = await axios.post('http://192.168.0.4:3000/api/stripe/create-session', stripeRequestBody, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Extract the URL from the Stripe session response
+      const stripeSessionUrl = createSessionResponse.data.session.url;
+      setStripeUrl(stripeSessionUrl); // Set the Stripe session URL in the state
+
       // Payment logic can follow here
       Alert.alert('Success', 'Order created successfully!');
+
+      // Navigate to the Stripe checkout page
+      // This can be opened in a web view or redirect to an external browser
       navigation.navigate('Home'); // Navigate to Home after successful order creation
     } catch (error) {
       console.error('Payment submission failed:', error);
@@ -86,6 +116,11 @@ export default function CheckoutScreen({ route, navigation }) {
       <Text style={styles.ipInfo}>City: {ipInfo.city}</Text>
       <Text style={styles.ipInfo}>Country: {ipInfo.country}</Text>
       <Text style={styles.ipInfo}>Currency: {ipInfo.currency}</Text>
+
+      {/* Display Stripe session URL if available */}
+      {stripeUrl ? (
+        <Text style={styles.stripeUrl}>Stripe Checkout URL: {stripeUrl}</Text>
+      ) : null}
 
       <Button title="Pay Now" onPress={handlePayment} />
     </View>
@@ -111,5 +146,10 @@ const styles = StyleSheet.create({
   ipInfo: {
     marginVertical: 5,
     fontSize: 16,
+  },
+  stripeUrl: {
+    marginVertical: 10,
+    fontSize: 16,
+    color: 'blue',
   },
 });
