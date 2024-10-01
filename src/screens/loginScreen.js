@@ -1,3 +1,4 @@
+// src/screens/LoginScreen.js
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,12 +20,14 @@ export default function LoginScreen({ navigation }) {
         password,
       });
 
-      // Check the response
       if (response && response.data) {
         if (response.data.message === 'Login successful') {
           const token = response.data.token;
+          const customerId = response.data.customerId;
           await AsyncStorage.setItem('authToken', token);
-          navigation.navigate('menuScreen'); // Navigate to menuScreen
+          
+          // Navigate to MenuScreen and pass token and customerId
+          navigation.navigate('menuScreen', { token, customerId });
         } else {
           Alert.alert('Error', response.data.message || 'Login failed');
         }
@@ -32,26 +35,14 @@ export default function LoginScreen({ navigation }) {
         Alert.alert('Error', 'Invalid response from server.');
       }
     } catch (error) {
-      console.error(error); // Log the error for debugging
       Alert.alert('Error', 'An error occurred. Please try again.');
     }
   };
 
   return (
     <View style={{ padding: 16 }}>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={{ marginBottom: 10, borderWidth: 1, borderColor: '#ccc', padding: 8 }}
-      />
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={{ marginBottom: 10, borderWidth: 1, borderColor: '#ccc', padding: 8 }}
-      />
+      <TextInput placeholder="Email" value={email} onChangeText={setEmail} />
+      <TextInput placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
       <Button title="Login" onPress={handleLogin} />
     </View>
   );
