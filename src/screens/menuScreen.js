@@ -4,8 +4,7 @@ import { View, Text, FlatList, Button, TextInput, Alert, ActivityIndicator, Scro
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-export default function MenuScreen({ navigation, route }) {
-  const { token, customerId, loginResponse } = route.params; // Retrieve token, customerId and loginResponse from route parameters
+export default function MenuScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState({}); // State to hold quantities for each product
@@ -13,6 +12,7 @@ export default function MenuScreen({ navigation, route }) {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        const token = await AsyncStorage.getItem('authToken'); // Fetch the token
         const response = await axios.get('http://192.168.0.4:3000/api/products/all', {
           headers: {
             Authorization: `Bearer ${token}` // Include the token in the request headers
@@ -27,30 +27,34 @@ export default function MenuScreen({ navigation, route }) {
     };
 
     fetchProducts();
-  }, [token]); // Fetch products when token changes
+  }, []);
+
+  const proceedToCheckout = () => {
+    const selectedProductIds = Object.keys(quantities).filter(id => quantities[id] > 0).map(id => ({
+      productId: parseInt(id),
+      quantity: quantities[id],
+      priceAtOrder: products.find(product => product.productId === parseInt(id)).price // Get price for the selected product
+    }));
+
+    navigation.navigate('CheckoutScreen', { selectedProducts: selectedProductIds });
+  };
 
   const renderItem = ({ item }) => {
     return (
-      <View key={item.productId} style={{ marginBottom: 20, borderWidth: 1, padding: 10 }}>
+      <View
+        key={item.productId}
+        style={{ marginBottom: 20, borderWidth: 1, padding: 10 }}
+      >
         <Text style={{ fontWeight: 'bold' }}>{item.name} - ${item.price}</Text>
         <Text>{item.description}</Text>
         <TextInput
           keyboardType="numeric"
-          value={String(quantities[item.productId] || 1)} // Display the correct quantity for this product
+          value={String(quantities[item.productId] || 0)} // Display the correct quantity for this product
           onChangeText={(value) => setQuantities({ ...quantities, [item.productId]: Number(value) })} // Update the specific product quantity
           style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginVertical: 10 }}
         />
-        <Button title="Select Product" onPress={() => {}} /> {/* Placeholder for product selection logic */}
       </View>
     );
-  };
-
-  const handleProceedToCheckout = () => {
-    const basket = products.map(item => ({
-      ...item,
-      quantity: quantities[item.productId] || 1,
-    }));
-    navigation.navigate('CheckoutScreen', { basket, customerId, loginResponse }); // Pass basket, customerId and loginResponse to CheckoutScreen
   };
 
   if (loading) {
@@ -64,7 +68,7 @@ export default function MenuScreen({ navigation, route }) {
         renderItem={renderItem}
         keyExtractor={(item) => item.productId.toString()} // Use productId as the key
       />
-      <Button title="Proceed to Checkout" onPress={handleProceedToCheckout} />
+      <Button title="Proceed to Checkout" onPress={proceedToCheckout} />
     </ScrollView>
   );
 }
