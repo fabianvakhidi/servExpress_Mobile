@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { BACKEND_API_URL } from '@env';
 
 export default function MenuScreen({ navigation }) {
   const [products, setProducts] = useState([]);
@@ -13,7 +14,7 @@ export default function MenuScreen({ navigation }) {
     const fetchProducts = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken'); // Fetch the token
-        const response = await axios.get('http://192.168.0.4:3000/api/products/all', {
+        const response = await axios.get(`${BACKEND_API_URL}/products/all`, {
           headers: {
             Authorization: `Bearer ${token}` // Include the token in the request headers
           }

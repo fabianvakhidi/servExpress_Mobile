@@ -3,39 +3,54 @@ import React, { useState } from 'react';
 import { View, Text, Button, StyleSheet, Alert } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BACKEND_API_URL } from '@env';
+
 
 export default function CheckoutScreen({ route, navigation }) {
   const { selectedProducts } = route.params; // Retrieve the selected products from route parameters
   const totalAmount = selectedProducts.reduce((total, item) => total + (item.priceAtOrder * item.quantity), 0); // Calculate total amount
 
-  // State to hold IP information
+  // State to hold information:
   const [ipInfo, setIpInfo] = useState({ city: '', country: '', currency: '' });
-  const [stripeUrl, setStripeUrl] = useState(''); // State to hold Stripe session URL
+  const [stripeUrl, setStripeUrl] = useState('');
+  const [stripeSessionId, setStripeSessionId] = useState('')
+  const [name, setName] = useState('');
+
+
 
   const handlePayment = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken'); // Fetch the token
-      const customerId = 8; // Replace with the logic to retrieve the actual customerId if needed
 
-      // Prepare the order request body
+      //Fetching from AsyncStorage:
+
+      //JWT Token
+      const token = await AsyncStorage.getItem('authToken'); // Fetch the token
+      //Customer ID from loginScreen:
+      const customerId = await AsyncStorage.getItem('customerId');
+      //email from loginScreen:
+      const email = await AsyncStorage.getItem('email');
+
+
+      // Prepare the order request body:
       const orderRequestBody = {
         customerId: customerId,
-        orderDate: new Date().toISOString(), // Current date in ISO format
-        totalAmount: totalAmount.toFixed(2), // Total amount formatted as string
+        orderDate: new Date().toISOString(),
+        totalAmount: totalAmount.toFixed(2), 
         status: 0, // Unpaid status
-        stripeSessionId: 'your-stripe-session-id', // Example Stripe session ID
+        stripeSessionId: 'your-stripe-session-id',
       };
 
-      // Send the order request to the Order API with authorization
-      const orderResponse = await axios.post('http://192.168.0.4:3000/api/orders', orderRequestBody, {
+      // Send the order request to the Order API with authorization:
+      const orderResponse = await axios.post(`${BACKEND_API_URL}/orders`, orderRequestBody, {
         headers: {
-          Authorization: `Bearer ${token}`, // Include the token in the request headers
+          Authorization: `Bearer ${token}`, 
         },
       });
 
-      const orderId = orderResponse.data.orderId; // Get the order ID from the response
+      // Get the order ID from the response:
+      const orderId = orderResponse.data.orderId; 
 
-      // Prepare the order products request body
+      // Prepare the order products request body:
       const orderProductsRequests = selectedProducts.map(product => ({
         orderId: orderId,
         productId: product.productId,
@@ -45,17 +60,17 @@ export default function CheckoutScreen({ route, navigation }) {
 
       // Send each product to the Order-Products API
       for (const orderProduct of orderProductsRequests) {
-        await axios.post('http://192.168.0.4:3000/api/order-products', orderProduct, {
+        await axios.post(`${BACKEND_API_URL}/order-products`, orderProduct, {
           headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the request headers
+            Authorization: `Bearer ${token}`,
           },
         });
       }
 
-      // Fetch IP information after order creation
-      const ipResponse = await axios.get('http://192.168.0.4:3000/api/ipinfo', {
+      // Fetch IP information after order creation:
+      const ipResponse = await axios.get(`${BACKEND_API_URL}/ipinfo`, {
         headers: {
-          Authorization: `Bearer ${token}`, // Include the token in the request headers
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -63,38 +78,63 @@ export default function CheckoutScreen({ route, navigation }) {
       const { city, country, currency } = ipResponse.data;
       setIpInfo({ city, country, currency });
 
+
+
+
+      // Fetch name from Customer API:
+      const customerInformation = await axios.get(`${BACKEND_API_URL}/customers/bulk-fetch?customerIds[]=${customerId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      });
+
+      if (customerInformation.data && customerInformation.data.length > 0) {
+        const { name } = customerInformation.data[0];
+        setName(name); 
+      }
+
+
       // Prepare the Stripe session request body
       const stripeRequestBody = {
         city: city,
         country: country,
-        email: "aasmund.ivarjord@example.com", // Replace with actual email
-        name: "Aasmund Ivarjord", // Replace with actual name
+        email: email,
+        name: name,
         success_url: "https://example.com/success",
         cancel_url: "https://example.com/cancel",
         payment_method_types: ['card'],
         currency: currency,
         product_name: selectedProducts[0].name, // Assuming the first product is chosen
-        unit_amount: totalAmount * 100, // Amount in cents
+        unit_amount: totalAmount * 100,
         internalCustomerId: customerId,
       };
 
-      // Call the Stripe API to create a session
-      const createSessionResponse = await axios.post('http://192.168.0.4:3000/api/stripe/create-session', stripeRequestBody, {
+
+
+
+      // Call the Stripe API to create a checkout-session:
+      const createSessionResponse = await axios.post(`${BACKEND_API_URL}/stripe/create-session`, stripeRequestBody, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      const stripeSessionUrl = createSessionResponse.data.session.url;
+      const stripeSessionId = createSessionResponse.data.session.id;
+      setStripeUrl(stripeSessionUrl);
+      setStripeSessionId(stripeSessionId);
+
+
+      await axios.put(`${BACKEND_API_URL}/orders/${orderId}`, { stripeSessionId: stripeSessionId }, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // Extract the URL from the Stripe session response
-      const stripeSessionUrl = createSessionResponse.data.session.url;
-      setStripeUrl(stripeSessionUrl); // Set the Stripe session URL in the state
+      // Navigate to paymentScreen and pass the Stripe URL
+      navigation.navigate('paymentScreen', { stripeUrl: stripeSessionUrl });
 
-      // Payment logic can follow here
-      Alert.alert('Success', 'Order created successfully!');
 
-      // Navigate to the Stripe checkout page
-      // This can be opened in a web view or redirect to an external browser
-      navigation.navigate('Home'); // Navigate to Home after successful order creation
     } catch (error) {
       console.error('Payment submission failed:', error);
       Alert.alert('Error', 'An error occurred while creating the order. Please try again.');
@@ -112,15 +152,20 @@ export default function CheckoutScreen({ route, navigation }) {
         </View>
       ))}
 
-      {/* Display IP information */}
-      <Text style={styles.ipInfo}>City: {ipInfo.city}</Text>
-      <Text style={styles.ipInfo}>Country: {ipInfo.country}</Text>
-      <Text style={styles.ipInfo}>Currency: {ipInfo.currency}</Text>
+      <Text style={styles.name}>Name: {name}</Text>
 
-      {/* Display Stripe session URL if available */}
+
       {stripeUrl ? (
         <Text style={styles.stripeUrl}>Stripe Checkout URL: {stripeUrl}</Text>
       ) : null}
+
+      
+
+      {stripeSessionId ? (
+        <Text style={styles.stripeSessionId}>stripeSessionId: {stripeSessionId}</Text>
+      ) : null}
+
+      
 
       <Button title="Pay Now" onPress={handlePayment} />
     </View>
